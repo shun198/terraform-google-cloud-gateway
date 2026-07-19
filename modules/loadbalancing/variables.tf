@@ -6,7 +6,11 @@ variable "region" {
   type = string
 }
 
-variable "cloud_run_service_name" {
+variable "web_service_name" {
+  type = string
+}
+
+variable "api_service_name" {
   type = string
 }
 

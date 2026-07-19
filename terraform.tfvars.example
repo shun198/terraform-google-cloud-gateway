@@ -6,7 +6,8 @@ name_prefix = "study"
 # domain = "app.example.com"
 
 # Replace after first image push to Artifact Registry
-# cloud_run_image = "asia-northeast1-docker.pkg.dev/your-gcp-project-id/study-app/web:latest"
+# cloud_run_web_image = "asia-northeast1-docker.pkg.dev/your-gcp-project-id/study-app/web:latest"
+# cloud_run_api_image = "asia-northeast1-docker.pkg.dev/your-gcp-project-id/study-app/api:latest"
 
 cloud_run_cpu           = "1"
 cloud_run_memory        = "512Mi"

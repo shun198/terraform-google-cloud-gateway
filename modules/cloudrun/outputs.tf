@@ -1,13 +1,17 @@
-output "service_name" {
-  value = google_cloud_run_v2_service.app.name
+output "web_service_name" {
+  value = google_cloud_run_v2_service.web.name
 }
 
-output "service_uri" {
-  value = google_cloud_run_v2_service.app.uri
+output "web_service_uri" {
+  value = google_cloud_run_v2_service.web.uri
 }
 
-output "service_id" {
-  value = google_cloud_run_v2_service.app.id
+output "api_service_name" {
+  value = google_cloud_run_v2_service.api.name
+}
+
+output "api_service_uri" {
+  value = google_cloud_run_v2_service.api.uri
 }
 
 output "service_account_email" {

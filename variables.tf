@@ -21,8 +21,14 @@ variable "domain" {
   default     = ""
 }
 
-variable "cloud_run_image" {
+variable "cloud_run_web_image" {
   description = "Container image for the Next.js Cloud Run service. Replace after first Artifact Registry push."
+  type        = string
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "cloud_run_api_image" {
+  description = "Container image for the backend API Cloud Run service. Replace after first Artifact Registry push."
   type        = string
   default     = "us-docker.pkg.dev/cloudrun/container/hello"
 }
@@ -76,7 +82,7 @@ variable "db_user" {
 }
 
 variable "enable_cdn" {
-  description = "Enable Cloud CDN on the backend service"
+  description = "Enable Cloud CDN on the frontend backend service"
   type        = bool
   default     = true
 }

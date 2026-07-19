@@ -1,10 +1,20 @@
-resource "google_compute_region_network_endpoint_group" "cloudrun" {
-  name                  = "${var.name_prefix}-run-neg"
+resource "google_compute_region_network_endpoint_group" "web" {
+  name                  = "${var.name_prefix}-web-neg"
   network_endpoint_type = "SERVERLESS"
   region                = var.region
 
   cloud_run {
-    service = var.cloud_run_service_name
+    service = var.web_service_name
+  }
+}
+
+resource "google_compute_region_network_endpoint_group" "api" {
+  name                  = "${var.name_prefix}-api-neg"
+  network_endpoint_type = "SERVERLESS"
+  region                = var.region
+
+  cloud_run {
+    service = var.api_service_name
   }
 }
 
@@ -16,7 +26,7 @@ resource "google_compute_backend_service" "web" {
   security_policy       = var.security_policy_self_link
 
   backend {
-    group = google_compute_region_network_endpoint_group.cloudrun.id
+    group = google_compute_region_network_endpoint_group.web.id
   }
 
   enable_cdn = var.enable_cdn
@@ -46,9 +56,43 @@ resource "google_compute_backend_service" "web" {
   }
 }
 
+resource "google_compute_backend_service" "api" {
+  name                  = "${var.name_prefix}-api-backend"
+  protocol              = "HTTP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  security_policy       = var.security_policy_self_link
+
+  backend {
+    group = google_compute_region_network_endpoint_group.api.id
+  }
+
+  # API はキャッシュしない
+  enable_cdn = false
+
+  log_config {
+    enable      = true
+    sample_rate = 1.0
+  }
+}
+
 resource "google_compute_url_map" "web" {
   name            = "${var.name_prefix}-url-map"
   default_service = google_compute_backend_service.web.id
+
+  host_rule {
+    hosts        = ["*"]
+    path_matcher = "main"
+  }
+
+  path_matcher {
+    name            = "main"
+    default_service = google_compute_backend_service.web.id
+
+    path_rule {
+      paths   = ["/api", "/api/*"]
+      service = google_compute_backend_service.api.id
+    }
+  }
 }
 
 resource "google_compute_managed_ssl_certificate" "web" {

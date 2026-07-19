@@ -18,8 +18,14 @@ variable "subnet_name" {
   type = string
 }
 
-variable "image" {
-  type = string
+variable "web_image" {
+  description = "Container image for Next.js frontend"
+  type        = string
+}
+
+variable "api_image" {
+  description = "Container image for backend API"
+  type        = string
 }
 
 variable "cpu" {

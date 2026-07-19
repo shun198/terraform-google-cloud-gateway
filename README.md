@@ -1,18 +1,17 @@
 # terraform-google-cloud-gateway
 
-勉強用の GCP 構成です。**Next.js を Cloud Run に載せ**、Global HTTPS LB / Cloud CDN / Cloud Armor (WAF) / VPC / Cloud NAT / Cloud SQL まで一式を Terraform で作ります。
+勉強用の GCP 構成です。**Next.js（フロント）と Backend API をそれぞれ Cloud Run** に載せ、Global HTTPS LB / Cloud CDN / Cloud Armor (WAF) / VPC / Cloud NAT / Cloud SQL まで一式を Terraform で作ります。
 
 ## アーキテクチャ
 
 ```text
 Internet
   → Cloud Armor (WAF / rate limit)
-  → Global External HTTPS LB (+ Cloud CDN)
-  → Serverless NEG
-  → Cloud Run (Next.js, Direct VPC Egress)
-       → Cloud SQL PostgreSQL (Private IP via PSA)
-       → Cloud NAT（必要な外向き通信）
-Secret Manager / Artifact Registry
+  → Global External HTTPS LB (+ Cloud CDN on frontend)
+       ├─ /api/*  → Serverless NEG → Cloud Run API
+       │                              → Cloud SQL (Private IP)
+       └─ /*      → Serverless NEG → Cloud Run Next.js
+Secret Manager / Artifact Registry / Cloud NAT
 ```
 
 | コンポーネント | 役割 |
@@ -20,11 +19,12 @@ Secret Manager / Artifact Registry
 | VPC + Subnet | Cloud Run Direct VPC Egress / private DB 接続 |
 | Cloud NAT | プライベート経路からの外向き通信 |
 | Private Service Access | Cloud SQL の Private IP |
-| Cloud SQL (PostgreSQL) | アプリ DB |
+| Cloud SQL (PostgreSQL) | アプリ DB（API から接続） |
 | Secret Manager | `DATABASE_URL` など |
-| Artifact Registry | Next.js コンテナ |
-| Cloud Run | Next.js (`output: "standalone"`) |
-| Serverless NEG + Global LB | 入口 + CDN |
+| Artifact Registry | web / api コンテナ |
+| Cloud Run (web) | Next.js (`output: "standalone"`) |
+| Cloud Run (api) | Hono API |
+| Serverless NEG + Global LB | 入口。`/api/*` とそれ以外を振り分け |
 | Cloud Armor | WAF / throttle / Adaptive Protection |
 
 ## 前提
@@ -44,27 +44,31 @@ terraform plan
 terraform apply
 ```
 
-初回はサンプル Hello イメージで Cloud Run が立ちます。Next.js に差し替える流れ:
+初回はサンプル Hello イメージで Cloud Run が立ちます。Next.js / API に差し替える流れ:
 
 ```bash
-# apply 後の output を確認
 terraform output artifact_registry_url
 terraform output lb_ip_address
 
 gcloud auth configure-docker asia-northeast1-docker.pkg.dev
 docker build -t "$(terraform output -raw artifact_registry_url)/web:latest" ./examples/nextjs-app
+docker build -t "$(terraform output -raw artifact_registry_url)/api:latest" ./examples/api
 docker push "$(terraform output -raw artifact_registry_url)/web:latest"
+docker push "$(terraform output -raw artifact_registry_url)/api:latest"
 ```
 
 `terraform.tfvars` にイメージを書いて再 apply:
 
 ```hcl
-cloud_run_image = "asia-northeast1-docker.pkg.dev/<project>/study-app/web:latest"
+cloud_run_web_image = "asia-northeast1-docker.pkg.dev/<project>/study-app/web:latest"
+cloud_run_api_image = "asia-northeast1-docker.pkg.dev/<project>/study-app/api:latest"
 ```
 
-ブラウザで `http://<lb_ip_address>` を開きます。
+- Frontend: `http://<lb_ip_address>`
+- API health: `http://<lb_ip_address>/api/health`
+- DB ping: `http://<lb_ip_address>/api/db/ping`
 
-HTTPS にする場合は `domain` を設定し、DNS A レコードを LB IP に向けてから再 apply（Managed SSL が発行されます）。
+HTTPS にする場合は `domain` を設定し、DNS A レコードを LB IP に向けてから再 apply。
 
 ## モジュール構成
 
@@ -75,19 +79,24 @@ HTTPS にする場合は `domain` を設定し、DNS A レコードを LB IP に
 │   ├── networking/     # VPC, subnet, PSA, NAT, firewall
 │   ├── security/       # Cloud Armor
 │   ├── database/       # Cloud SQL + Secret Manager
-│   ├── cloudrun/       # Cloud Run + Artifact Registry + SA
-│   └── loadbalancing/  # NEG, backend, CDN, LB
-└── examples/nextjs-app # 最小 Next.js (pnpm) + Dockerfile
+│   ├── cloudrun/       # web + api Cloud Run, Artifact Registry, SA
+│   └── loadbalancing/  # NEG, path-based routing, CDN, LB
+└── examples/
+    ├── nextjs-app/     # フロント (pnpm)
+    └── api/            # バックエンド API (pnpm + Hono)
 ```
 
-ローカル開発（example）:
+ローカル開発:
 
 ```bash
-cd examples/nextjs-app
-corepack enable
-pnpm install
-pnpm dev
+# API
+cd examples/api && corepack enable && pnpm install && pnpm dev
+
+# Frontend（別ターミナル）
+cd examples/nextjs-app && corepack enable && pnpm install && pnpm dev
 ```
+
+ローカルでは Next.js が `http://localhost:3000`、API が `http://localhost:8080` です。ブラウザから `/api` を叩く場合は Next.js の rewrite か、LB 経由で確認してください。
 
 ## コスト注意（勉強用）
 
@@ -97,7 +106,7 @@ pnpm dev
 
 ## Cloud Run を選んだ理由
 
-- Next.js（SSR / App Router）をコンテナ一発で載せやすい
+- Next.js / API をコンテナ単位で分けやすい
 - LB + Armor + CDN + Private Cloud SQL の学習に十分
 - GKE より運用が軽い（勉強の第一歩向き）
 

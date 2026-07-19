@@ -3,17 +3,26 @@ output "lb_ip_address" {
   value       = module.loadbalancing.lb_ip_address
 }
 
-output "cloud_run_service_uri" {
-  description = "Cloud Run service URI (internal LB ingress; prefer LB IP for access)"
-  value       = module.cloudrun.service_uri
+output "web_service_name" {
+  value = module.cloudrun.web_service_name
 }
 
-output "cloud_run_service_name" {
-  value = module.cloudrun.service_name
+output "web_service_uri" {
+  description = "Cloud Run web URI (prefer LB IP; ingress is internal LB only)"
+  value       = module.cloudrun.web_service_uri
+}
+
+output "api_service_name" {
+  value = module.cloudrun.api_service_name
+}
+
+output "api_service_uri" {
+  description = "Cloud Run API URI (prefer LB /api; ingress is internal LB only)"
+  value       = module.cloudrun.api_service_uri
 }
 
 output "artifact_registry_url" {
-  description = "Push Next.js images here, then update cloud_run_image"
+  description = "Push web/api images here, then update cloud_run_*_image"
   value       = module.cloudrun.artifact_registry_url
 }
 
@@ -40,18 +49,22 @@ output "waf_policy_name" {
 output "next_steps" {
   description = "Study workflow after terraform apply"
   value       = <<-EOT
-    1. Build & push Next.js image:
+    1. Build & push images:
        gcloud auth configure-docker ${var.region}-docker.pkg.dev
        docker build -t ${module.cloudrun.artifact_registry_url}/web:latest ./examples/nextjs-app
+       docker build -t ${module.cloudrun.artifact_registry_url}/api:latest ./examples/api
        docker push ${module.cloudrun.artifact_registry_url}/web:latest
+       docker push ${module.cloudrun.artifact_registry_url}/api:latest
 
     2. Update terraform.tfvars:
-       cloud_run_image = "${module.cloudrun.artifact_registry_url}/web:latest"
+       cloud_run_web_image = "${module.cloudrun.artifact_registry_url}/web:latest"
+       cloud_run_api_image = "${module.cloudrun.artifact_registry_url}/api:latest"
 
     3. Re-apply:
        terraform apply
 
-    4. Open http://${module.loadbalancing.lb_ip_address}
-       (set domain + DNS A record for HTTPS managed cert)
+    4. Open:
+       Frontend: http://${module.loadbalancing.lb_ip_address}
+       API:      http://${module.loadbalancing.lb_ip_address}/api/health
   EOT
 }

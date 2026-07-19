@@ -26,9 +26,10 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# Node / Next.js (example app)
-examples/nextjs-app/node_modules/
-examples/nextjs-app/.next/
-examples/nextjs-app/.env*
+# Node examples
+examples/**/node_modules/
+examples/**/.next/
+examples/**/dist/
+examples/**/.env*
 *.log
 .pnpm-store/

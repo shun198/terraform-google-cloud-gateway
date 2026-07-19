@@ -36,7 +36,8 @@ module "cloudrun" {
   region                    = var.region
   network_name              = module.networking.network_name
   subnet_name               = module.networking.runtime_subnet_name
-  image                     = var.cloud_run_image
+  web_image                 = var.cloud_run_web_image
+  api_image                 = var.cloud_run_api_image
   cpu                       = var.cloud_run_cpu
   memory                    = var.cloud_run_memory
   min_instances             = var.cloud_run_min_instances
@@ -52,7 +53,8 @@ module "loadbalancing" {
 
   name_prefix               = var.name_prefix
   region                    = var.region
-  cloud_run_service_name    = module.cloudrun.service_name
+  web_service_name          = module.cloudrun.web_service_name
+  api_service_name          = module.cloudrun.api_service_name
   security_policy_self_link = module.security.security_policy_self_link
   enable_cdn                = var.enable_cdn
   domain                    = var.domain
