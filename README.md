@@ -30,7 +30,7 @@ Secret Manager / Artifact Registry / Cloud NAT
 ## 前提
 
 - GCP プロジェクトと課金有効化
-- ローカルに `gcloud` / `terraform` (>= 1.5) / Docker
+- ローカルに `gcloud` / `terraform` (>= 1.5) / Docker / Node.js 26（example アプリ）
 - 権限: Project Owner または相当（API 有効化・IAM・ネットワーク作成）
 
 ## 使い方

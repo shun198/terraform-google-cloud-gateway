@@ -1,5 +1,5 @@
 # Backend API on Cloud Run (Hono + pnpm)
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -13,7 +13,7 @@ COPY src ./src
 RUN pnpm run build \
   && pnpm prune --prod
 
-FROM node:22-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
