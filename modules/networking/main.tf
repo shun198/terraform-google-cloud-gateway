@@ -2,13 +2,17 @@ resource "google_compute_network" "vpc" {
   name                    = "${var.name_prefix}-vpc"
   auto_create_subnetworks = false
   routing_mode            = "GLOBAL"
+  project                 = var.project_id
 
   depends_on = [var.api_dependency]
 }
 
 resource "google_compute_subnetwork" "runtime" {
-  name          = "${var.name_prefix}-runtime"
-  ip_cidr_range = var.runtime_subnet_cidr
+  for_each = var.subnets
+
+  project       = var.project_id
+  name          = "${var.name_prefix}-${each.key}"
+  ip_cidr_range = each.value.cidr
   region        = var.region
   network       = google_compute_network.vpc.id
 
@@ -22,6 +26,7 @@ resource "google_compute_subnetwork" "runtime" {
 }
 
 resource "google_compute_global_address" "private_services" {
+  project       = var.project_id
   name          = "${var.name_prefix}-psa"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
@@ -36,12 +41,14 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 }
 
 resource "google_compute_router" "router" {
+  project = var.project_id
   name    = "${var.name_prefix}-router"
   region  = var.region
   network = google_compute_network.vpc.id
 }
 
 resource "google_compute_router_nat" "nat" {
+  project                            = var.project_id
   name                               = "${var.name_prefix}-nat"
   router                             = google_compute_router.router.name
   region                             = var.region
@@ -54,8 +61,8 @@ resource "google_compute_router_nat" "nat" {
   }
 }
 
-# Allow health checks / internal traffic; Cloud Run Direct VPC Egress uses this subnet.
 resource "google_compute_firewall" "allow_internal" {
+  project = var.project_id
   name    = "${var.name_prefix}-allow-internal"
   network = google_compute_network.vpc.name
 
@@ -71,11 +78,12 @@ resource "google_compute_firewall" "allow_internal" {
     protocol = "icmp"
   }
 
-  source_ranges = [var.runtime_subnet_cidr]
+  source_ranges = [for s in var.subnets : s.cidr]
   priority      = 1000
 }
 
 resource "google_compute_firewall" "allow_health_checks" {
+  project = var.project_id
   name    = "${var.name_prefix}-allow-hc"
   network = google_compute_network.vpc.name
 
@@ -83,7 +91,6 @@ resource "google_compute_firewall" "allow_health_checks" {
     protocol = "tcp"
   }
 
-  # Google health check / LB ranges
   source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
   priority      = 1000
 }

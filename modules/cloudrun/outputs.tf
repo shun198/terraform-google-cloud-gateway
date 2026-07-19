@@ -18,6 +18,10 @@ output "service_account_email" {
   value = google_service_account.runtime.email
 }
 
+output "service_account_member" {
+  value = "serviceAccount:${google_service_account.runtime.email}"
+}
+
 output "artifact_registry_repository" {
   value = google_artifact_registry_repository.app.name
 }

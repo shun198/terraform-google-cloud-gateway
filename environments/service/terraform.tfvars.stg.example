@@ -1,0 +1,14 @@
+environment     = "stg"
+project_id      = "your-app-stg"
+host_project_id = "your-shared-vpc-host"
+region          = "asia-northeast1"
+name_prefix     = "study"
+
+network_name = "study-vpc"
+network_id   = "projects/your-shared-vpc-host/global/networks/study-vpc"
+subnet_name  = "study-stg"
+
+cloud_run_min_instances = 0
+cloud_run_max_instances = 5
+db_tier                 = "db-f1-micro"
+enable_cdn              = true

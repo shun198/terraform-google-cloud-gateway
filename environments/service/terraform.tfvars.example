@@ -1,0 +1,30 @@
+# Copy per env: terraform.tfvars.dev / .stg / .prd
+environment     = "dev"
+project_id      = "your-app-dev"
+host_project_id = "your-shared-vpc-host"
+region          = "asia-northeast1"
+name_prefix     = "study"
+
+# From: cd ../host && terraform output
+network_name = "study-vpc"
+network_id   = "projects/your-shared-vpc-host/global/networks/study-vpc"
+subnet_name  = "study-dev"
+
+# Optional HTTPS
+# domain = "dev.example.com"
+
+# Replace after Artifact Registry push
+# cloud_run_web_image = "asia-northeast1-docker.pkg.dev/your-app-dev/study-dev-app/web:latest"
+# cloud_run_api_image = "asia-northeast1-docker.pkg.dev/your-app-dev/study-dev-app/api:latest"
+
+cloud_run_cpu           = "1"
+cloud_run_memory        = "512Mi"
+cloud_run_min_instances = 0
+cloud_run_max_instances = 5
+
+db_tier = "db-f1-micro"
+db_name = "app"
+db_user = "app"
+
+enable_cdn            = true
+allowed_ingress_cidrs = ["*"]

@@ -11,11 +11,19 @@ variable "region" {
 }
 
 variable "network_name" {
-  type = string
+  description = "VPC network name or projects/HOST/global/networks/NAME"
+  type        = string
 }
 
 variable "subnet_name" {
-  type = string
+  description = "Subnet name or projects/HOST/regions/REGION/subnetworks/NAME"
+  type        = string
+}
+
+variable "host_project_id" {
+  description = "If set, Cloud Run Direct VPC uses Shared VPC resource paths under this host project"
+  type        = string
+  default     = ""
 }
 
 variable "web_image" {

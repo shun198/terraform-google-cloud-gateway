@@ -1,3 +1,8 @@
+variable "project_id" {
+  description = "Host project ID where the VPC lives"
+  type        = string
+}
+
 variable "name_prefix" {
   type = string
 }
@@ -6,9 +11,11 @@ variable "region" {
   type = string
 }
 
-variable "runtime_subnet_cidr" {
-  type    = string
-  default = "10.10.0.0/20"
+variable "subnets" {
+  description = "Map of environment key => subnet config (e.g. dev/stg/prd)"
+  type = map(object({
+    cidr = string
+  }))
 }
 
 variable "api_dependency" {

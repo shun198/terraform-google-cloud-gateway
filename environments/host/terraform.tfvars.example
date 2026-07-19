@@ -1,0 +1,30 @@
+host_project_id = "your-shared-vpc-host"
+region          = "asia-northeast1"
+name_prefix     = "study"
+
+subnets = {
+  dev = { cidr = "10.10.0.0/20" }
+  stg = { cidr = "10.20.0.0/20" }
+  prd = { cidr = "10.30.0.0/20" }
+}
+
+# gcloud projects describe <id> --format='value(projectNumber)'
+service_projects = {
+  dev = {
+    project_id     = "your-app-dev"
+    project_number = "111111111111"
+  }
+  stg = {
+    project_id     = "your-app-stg"
+    project_number = "222222222222"
+  }
+  prd = {
+    project_id     = "your-app-prd"
+    project_number = "333333333333"
+  }
+}
+
+# Optional: after service stack creates runtime SA
+# extra_network_users = {
+#   dev = ["serviceAccount:study-run@your-app-dev.iam.gserviceaccount.com"]
+# }
