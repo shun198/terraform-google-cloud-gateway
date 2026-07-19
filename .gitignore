@@ -31,3 +31,4 @@ examples/nextjs-app/node_modules/
 examples/nextjs-app/.next/
 examples/nextjs-app/.env*
 *.log
+.pnpm-store/

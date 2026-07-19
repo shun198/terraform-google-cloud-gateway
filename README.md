@@ -77,7 +77,16 @@ HTTPS にする場合は `domain` を設定し、DNS A レコードを LB IP に
 │   ├── database/       # Cloud SQL + Secret Manager
 │   ├── cloudrun/       # Cloud Run + Artifact Registry + SA
 │   └── loadbalancing/  # NEG, backend, CDN, LB
-└── examples/nextjs-app # 最小 Next.js + Dockerfile
+└── examples/nextjs-app # 最小 Next.js (pnpm) + Dockerfile
+```
+
+ローカル開発（example）:
+
+```bash
+cd examples/nextjs-app
+corepack enable
+pnpm install
+pnpm dev
 ```
 
 ## コスト注意（勉強用）
