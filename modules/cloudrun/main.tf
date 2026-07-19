@@ -27,6 +27,16 @@ resource "google_project_iam_member" "run_metric_writer" {
   member  = "serviceAccount:${google_service_account.runtime.email}"
 }
 
+locals {
+  vpc_network = var.host_project_id != "" ? (
+    startswith(var.network_name, "projects/") ? var.network_name : "projects/${var.host_project_id}/global/networks/${var.network_name}"
+  ) : var.network_name
+
+  vpc_subnetwork = var.host_project_id != "" ? (
+    startswith(var.subnet_name, "projects/") ? var.subnet_name : "projects/${var.host_project_id}/regions/${var.region}/subnetworks/${var.subnet_name}"
+  ) : var.subnet_name
+}
+
 resource "google_artifact_registry_repository" "app" {
   location      = var.region
   repository_id = "${var.name_prefix}-app"
@@ -55,8 +65,8 @@ resource "google_cloud_run_v2_service" "web" {
 
     vpc_access {
       network_interfaces {
-        network    = var.network_name
-        subnetwork = var.subnet_name
+        network    = local.vpc_network
+        subnetwork = local.vpc_subnetwork
       }
       egress = "PRIVATE_RANGES_ONLY"
     }
@@ -144,11 +154,11 @@ resource "google_cloud_run_v2_service" "api" {
       max_instance_count = var.max_instances
     }
 
-    # Cloud SQL Private IP 向け
+    # Cloud SQL Private IP 向け（Shared VPC 対応）
     vpc_access {
       network_interfaces {
-        network    = var.network_name
-        subnetwork = var.subnet_name
+        network    = local.vpc_network
+        subnetwork = local.vpc_subnetwork
       }
       egress = "PRIVATE_RANGES_ONLY"
     }

@@ -11,8 +11,9 @@ variable "network_id" {
 }
 
 variable "private_vpc_connection" {
-  description = "Dependency on PSA peering"
+  description = "Dependency on PSA peering (set in host stack; optional when PSA already exists)"
   type        = any
+  default     = null
 }
 
 variable "db_tier" {

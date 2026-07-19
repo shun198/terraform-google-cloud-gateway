@@ -1,113 +1,108 @@
 # terraform-google-cloud-gateway
 
-勉強用の GCP 構成です。**Next.js（フロント）と Backend API をそれぞれ Cloud Run** に載せ、Global HTTPS LB / Cloud CDN / Cloud Armor (WAF) / VPC / Cloud NAT / Cloud SQL まで一式を Terraform で作ります。
+勉強用の GCP 構成です。**Shared VPC** でネットワークを host project に集約し、環境別（dev / stg / prd）の service project に Next.js + API（Cloud Run）を載せます。
 
 ## アーキテクチャ
 
 ```text
-Internet
-  → Cloud Armor (WAF / rate limit)
-  → Global External HTTPS LB (+ Cloud CDN on frontend)
-       ├─ /api/*  → Serverless NEG → Cloud Run API
-       │                              → Cloud SQL (Private IP)
-       └─ /*      → Serverless NEG → Cloud Run Next.js
-Secret Manager / Artifact Registry / Cloud NAT
+host-project (Shared VPC)
+  VPC + Cloud NAT + PSA
+  subnets: study-dev / study-stg / study-prd
+       │
+       ├─ service-dev  → Cloud Run (web/api) + Cloud SQL + LB/CDN/Armor
+       ├─ service-stg  → Cloud Run (web/api) + Cloud SQL + LB/CDN/Armor
+       └─ service-prd  → Cloud Run (web/api) + Cloud SQL + LB/CDN/Armor
+
+Internet → Cloud Armor → Global HTTPS LB (+ CDN on frontend)
+  ├─ /api/* → Cloud Run API → Cloud SQL (Private IP on Shared VPC)
+  └─ /*     → Cloud Run Next.js
 ```
 
-| コンポーネント | 役割 |
-|---|---|
-| VPC + Subnet | Cloud Run Direct VPC Egress / private DB 接続 |
-| Cloud NAT | プライベート経路からの外向き通信 |
-| Private Service Access | Cloud SQL の Private IP |
-| Cloud SQL (PostgreSQL) | アプリ DB（API から接続） |
-| Secret Manager | `DATABASE_URL` など |
-| Artifact Registry | web / api コンテナ |
-| Cloud Run (web) | Next.js (`output: "standalone"`) |
-| Cloud Run (api) | Hono API |
-| Serverless NEG + Global LB | 入口。`/api/*` とそれ以外を振り分け |
-| Cloud Armor | WAF / throttle / Adaptive Protection |
+## ディレクトリ
+
+```text
+modules/
+  networking/      # VPC, env subnets, NAT, PSA, firewall
+  shared_vpc/      # host enable + service attach + subnet IAM
+  cloudrun/        # web + api
+  database/        # Cloud SQL + Secret Manager
+  loadbalancing/   # path-based LB + CDN
+  security/        # Cloud Armor
+environments/
+  host/            # Shared VPC host stack（先に apply）
+  service/         # 環境別 app stack（dev/stg/prd）
+examples/
+  nextjs-app/      # Frontend (pnpm, Node 26)
+  api/             # Backend API (pnpm, Node 26)
+```
+
+## Apply 順序
+
+### 1. Host（Shared VPC）
+
+```bash
+cd environments/host
+cp terraform.tfvars.example terraform.tfvars
+# host_project_id / service_projects(project_id + project_number) を設定
+
+terraform init
+terraform apply
+terraform output
+```
+
+`project_number` は次で取得できます:
+
+```bash
+gcloud projects describe YOUR_PROJECT_ID --format='value(projectNumber)'
+```
+
+### 2. Service（環境ごと）
+
+```bash
+cd environments/service
+cp terraform.tfvars.example terraform.tfvars.dev
+# host の output を見て network_* / subnet_* / project_id を設定
+
+terraform init
+terraform workspace select dev || terraform workspace new dev
+terraform apply -var-file=terraform.tfvars.dev
+```
+
+stg / prd も同様（`terraform.tfvars.stg.example` / `terraform.tfvars.prd.example` 参照）。
+
+### 3. アプリイメージ
+
+```bash
+# service ディレクトリで
+terraform output artifact_registry_url
+docker build -t "$(terraform output -raw artifact_registry_url)/web:latest" ../../examples/nextjs-app
+docker build -t "$(terraform output -raw artifact_registry_url)/api:latest" ../../examples/api
+docker push ...
+# tfvars の cloud_run_*_image を更新して再 apply
+```
+
+## Shared VPC で付与している権限
+
+| 対象 | ロール | 場所 |
+|---|---|---|
+| Cloud Run Service Agent（service project） | `roles/compute.networkUser` | host の env subnet |
+| Cloud Services SA（service project） | `roles/compute.networkUser` | host の env subnet |
+| Cloud Run runtime SA | `roles/compute.networkUser` | service stack が host subnet に付与 |
 
 ## 前提
 
-- GCP プロジェクトと課金有効化
-- ローカルに `gcloud` / `terraform` (>= 1.5) / Docker / Node.js 26（example アプリ）
-- 権限: Project Owner または相当（API 有効化・IAM・ネットワーク作成）
+- GCP 組織（またはフォルダ）配下に host / service プロジェクト
+- Shared VPC 利用権限（host で Shared VPC Admin 相当）
+- ローカル: `gcloud` / `terraform` (>= 1.5) / Docker / Node.js 26
 
-## 使い方
+## コスト注意
 
-```bash
-cp terraform.tfvars.example terraform.tfvars
-# project_id などを編集
+- 環境を増やすと Cloud SQL / Global LB が環境数ぶん課金されます
+- 勉強中は dev だけ作り、不要時は `terraform destroy` 推奨
 
-terraform init
-terraform plan
-terraform apply
-```
-
-初回はサンプル Hello イメージで Cloud Run が立ちます。Next.js / API に差し替える流れ:
+## ローカル開発（example）
 
 ```bash
-terraform output artifact_registry_url
-terraform output lb_ip_address
-
-gcloud auth configure-docker asia-northeast1-docker.pkg.dev
-docker build -t "$(terraform output -raw artifact_registry_url)/web:latest" ./examples/nextjs-app
-docker build -t "$(terraform output -raw artifact_registry_url)/api:latest" ./examples/api
-docker push "$(terraform output -raw artifact_registry_url)/web:latest"
-docker push "$(terraform output -raw artifact_registry_url)/api:latest"
-```
-
-`terraform.tfvars` にイメージを書いて再 apply:
-
-```hcl
-cloud_run_web_image = "asia-northeast1-docker.pkg.dev/<project>/study-app/web:latest"
-cloud_run_api_image = "asia-northeast1-docker.pkg.dev/<project>/study-app/api:latest"
-```
-
-- Frontend: `http://<lb_ip_address>`
-- API health: `http://<lb_ip_address>/api/health`
-- DB ping: `http://<lb_ip_address>/api/db/ping`
-
-HTTPS にする場合は `domain` を設定し、DNS A レコードを LB IP に向けてから再 apply。
-
-## モジュール構成
-
-```text
-.
-├── main.tf / variables.tf / outputs.tf / apis.tf
-├── modules/
-│   ├── networking/     # VPC, subnet, PSA, NAT, firewall
-│   ├── security/       # Cloud Armor
-│   ├── database/       # Cloud SQL + Secret Manager
-│   ├── cloudrun/       # web + api Cloud Run, Artifact Registry, SA
-│   └── loadbalancing/  # NEG, path-based routing, CDN, LB
-└── examples/
-    ├── nextjs-app/     # フロント (pnpm)
-    └── api/            # バックエンド API (pnpm + Hono)
-```
-
-ローカル開発:
-
-```bash
-# API
 cd examples/api && corepack enable && pnpm install && pnpm dev
-
-# Frontend（別ターミナル）
 cd examples/nextjs-app && corepack enable && pnpm install && pnpm dev
 ```
-
-ローカルでは Next.js が `http://localhost:3000`、API が `http://localhost:8080` です。ブラウザから `/api` を叩く場合は Next.js の rewrite か、LB 経由で確認してください。
-
-## コスト注意（勉強用）
-
-- Cloud SQL (`db-f1-micro`) と Global LB は常時課金になりやすいです
-- 使わないときは `terraform destroy` 推奨
-- Cloud Run は `min_instances = 0` でアイドル時コストを抑えられます
-
-## Cloud Run を選んだ理由
-
-- Next.js / API をコンテナ単位で分けやすい
-- LB + Armor + CDN + Private Cloud SQL の学習に十分
-- GKE より運用が軽い（勉強の第一歩向き）
-
-サイドカー必須・複雑な Service Mesh などが必要になったら GKE を検討してください。

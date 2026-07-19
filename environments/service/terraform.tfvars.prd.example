@@ -1,0 +1,16 @@
+environment     = "prd"
+project_id      = "your-app-prd"
+host_project_id = "your-shared-vpc-host"
+region          = "asia-northeast1"
+name_prefix     = "study"
+
+network_name = "study-vpc"
+network_id   = "projects/your-shared-vpc-host/global/networks/study-vpc"
+subnet_name  = "study-prd"
+
+# domain = "app.example.com"
+
+cloud_run_min_instances = 1
+cloud_run_max_instances = 20
+db_tier                 = "db-custom-1-3840"
+enable_cdn              = true
