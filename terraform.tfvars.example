@@ -1,0 +1,23 @@
+project_id  = "your-gcp-project-id"
+region      = "asia-northeast1"
+name_prefix = "study"
+
+# Optional: set for managed SSL certificate + HTTPS
+# domain = "app.example.com"
+
+# Replace after first image push to Artifact Registry
+# cloud_run_image = "asia-northeast1-docker.pkg.dev/your-gcp-project-id/study-app/web:latest"
+
+cloud_run_cpu           = "1"
+cloud_run_memory        = "512Mi"
+cloud_run_min_instances = 0
+cloud_run_max_instances = 5
+
+db_tier = "db-f1-micro"
+db_name = "app"
+db_user = "app"
+
+enable_cdn = true
+
+# Study default: allow all. Tighten later, e.g. ["203.0.113.0/24"]
+allowed_ingress_cidrs = ["*"]
