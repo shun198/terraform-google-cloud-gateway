@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.14.1
-        version: 1.19.14(hono@4.12.31)
+        version: 1.19.14(hono@4.12.34)
       hono:
-        specifier: ^4.7.7
-        version: 4.12.31
+        specifier: ^4.12.34
+        version: 4.12.34
       pg:
         specifier: ^8.14.1
         version: 8.22.0
@@ -211,8 +211,8 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
-  hono@4.12.31:
-    resolution: {integrity: sha512-zJIHFrl6bq3RDd2YusFNCDlM8qUprxKswyi/OPzPyzKDdyBXDqWx8bZlZ7R+saTdSTatUmb3O7K4SspGPaEOQg==}
+  hono@4.12.34:
+    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
     engines: {node: '>=16.9.0'}
 
   pg-cloudflare@1.4.0:
@@ -366,9 +366,9 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@hono/node-server@1.19.14(hono@4.12.31)':
+  '@hono/node-server@1.19.14(hono@4.12.34)':
     dependencies:
-      hono: 4.12.31
+      hono: 4.12.34
 
   '@types/node@26.1.1':
     dependencies:
@@ -412,7 +412,7 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
-  hono@4.12.31: {}
+  hono@4.12.34: {}
 
   pg-cloudflare@1.4.0:
     optional: true
