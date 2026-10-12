@@ -22,7 +22,7 @@ jobs:
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Approve this minor or patch update
+      - name: Approve and merge minor or patch update
         if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
@@ -31,10 +31,48 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api --method POST \
+          set -euo pipefail
+
+          assert_head_sha() {
+            local current
+            current="$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+            if [ "$current" != "$EXPECTED_SHA" ]; then
+              echo "Head SHA drift: expected $EXPECTED_SHA, got $current"
+              exit 1
+            fi
+          }
+
+          assert_head_sha
+
+          approve_output=""
+          if ! approve_output="$(gh api --method POST \
             --header "Accept: application/vnd.github+json" \
             --header "X-GitHub-Api-Version: 2022-11-28" \
             "repos/$REPOSITORY/pulls/$PR_NUMBER/reviews" \
             -f event=APPROVE \
-            -f commit_id="$EXPECTED_SHA"
-          gh pr merge "$PR_URL" --auto --merge --match-head-commit "$EXPECTED_SHA"
+            -f commit_id="$EXPECTED_SHA" 2>&1)"; then
+            if echo "$approve_output" | grep -qiE 'not permitted to approve|cannot approve'; then
+              echo "Skipping approval (not permitted): $approve_output"
+            else
+              echo "$approve_output" >&2
+              exit 1
+            fi
+          fi
+
+          merge_output=""
+          if merge_output="$(gh pr merge "$PR_URL" --auto --merge --match-head-commit "$EXPECTED_SHA" 2>&1)"; then
+            echo "$merge_output"
+            exit 0
+          fi
+
+          if echo "$merge_output" | grep -qiE 'Protected branch rules not configured|enablePullRequestAutoMerge|pull request auto-merge|auto merge is not allowed|auto-merge is not enabled'; then
+            echo "Auto-merge unavailable, waiting for checks then merging directly:"
+            echo "$merge_output"
+            gh pr checks "$PR_NUMBER" --watch --interval 10 || true
+            assert_head_sha
+            gh pr merge "$PR_URL" --merge --match-head-commit "$EXPECTED_SHA"
+            exit 0
+          fi
+
+          echo "$merge_output" >&2
+          exit 1
